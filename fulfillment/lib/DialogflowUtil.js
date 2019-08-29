@@ -1,3 +1,5 @@
+'use strict';
+
 class DialogflowFulfillmentHandler {
 
     constructor(request) {
@@ -7,10 +9,15 @@ class DialogflowFulfillmentHandler {
         this.followUpEvent_ = null;
         this.session_ = this.request_.session;
         this.userIdentification_ = this.session__.split('/').slice(-1)[0];
+        this.intent_ = this.request_.queryResult.intent.displayName;
     }
 
     getFollowUpEvent() {
         return this.followUpEvent_
+    }
+
+    getIntent() {
+        return this.intent_
     }
 
     setFollowUpEvent(intentName, parameters) {
@@ -92,7 +99,7 @@ class DialogflowFulfillmentHandler {
     }
 
     getParametersFromContext() {
-        let req = this.request_;
+        let req = this.request_.queryResult;
         try {
             let i = 0;
             let maxContext = {};
@@ -119,6 +126,18 @@ class DialogflowFulfillmentHandler {
             console.log(err);
         }
         return undefined;
+    }
+
+    getInputContexts() {
+        if (this.request_.queryResult.outputContexts) {
+            let contexts = {}
+            for (let context of this.request_.queryResult.outputContexts) {
+                contexts[context.name] = context
+            }
+            return contexts
+        } else {
+            return {}
+        }
     }
 
     createFulfillmentResponse() {
