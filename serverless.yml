@@ -1,0 +1,27 @@
+service: dialogflow-talk
+provider:
+  name: aws
+  runtime: nodejs10.x
+  region: us-east-2
+  environment:
+    STAGE: ${opt:stage, 'development'}
+
+package: 
+  individually: true
+
+functions:
+  fulfillment:
+    handler: fulfillment/index.handler
+    memorySize: 128
+    timeout: 30
+    package:
+      exclude:
+        - "**/**"
+      include:
+        - fulfillment/**
+    description: dialogflow fulfillment talk.
+    events:
+      - http:
+          path: /dialogflow-talk-fulfillment
+          method: ANY
+          private: true
