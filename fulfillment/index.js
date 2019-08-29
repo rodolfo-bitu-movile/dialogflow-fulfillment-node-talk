@@ -1,4 +1,5 @@
 'use strict';
+const path = require('path');
 const generalConfigs = require(path.resolve(__dirname, 'config/config.json'));
 const stage = process.env['STAGE'];
 const configs = generalConfigs[stage];
@@ -8,6 +9,7 @@ if (!configs) {
 }
 
 const {DialogflowUtil} = require('./lib');
+const intentHandler = require('./intentHandler');
 
 exports.handler = async (event, context, callback) => {
 
@@ -31,7 +33,12 @@ exports.handler = async (event, context, callback) => {
             return;
         }
 
-        const agent = DialogflowUtil.DialogflowFulfillmentHandler(event.body);
+        let body = JSON.parse(event.body)
+
+        const agent = new DialogflowUtil.DialogflowFulfillmentHandler(body);
+        if (!agent.isMenu) {
+            intentHandler.handleIntent(agent);
+        }
 
         done(false, agent.createFulfillmentResponse())
 

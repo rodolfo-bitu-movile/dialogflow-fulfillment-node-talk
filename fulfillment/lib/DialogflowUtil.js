@@ -1,15 +1,37 @@
 'use strict';
 
+//This intent should exist to handle menu numbers
+const MENU_OPTIONS_INTENT = 'special-menu handler';
+//It should have this context and should remove it[?] (lifespan 0)
+const MENU_OPTIONS_CONTEXT = 'menu-custom-context';
+//This should be the parameter configuration in dialogflow (@sys.number-integer)
+const MENU_OPTIONS_INTENT_PARAMETER_NAME = 'option-number';
+const MENU_OPTIONS_CONTEXT_PARAMETER_NAME = 'options';
+
 class DialogflowFulfillmentHandler {
 
     constructor(request) {
+        console.log(JSON.stringify(request))
         this.request_ = request;
         this.responses_ = [];
         this.outputContexts_ = {};
         this.followUpEvent_ = null;
         this.session_ = this.request_.session;
-        this.userIdentification_ = this.session__.split('/').slice(-1)[0];
+        this.userIdentification_ = this.session_.split('/').slice(-1)[0];
         this.intent_ = this.request_.queryResult.intent.displayName;
+        this.parameters_ = this.request_.queryResult.parameters;
+
+        if (this.intent_ === MENU_OPTIONS_INTENT) {
+            this.isMenu = true;
+            let contexts = this.getInputContexts();
+            console.log(JSON.stringify(contexts));
+            let options = contexts[MENU_OPTIONS_CONTEXT].parameters[MENU_OPTIONS_CONTEXT_PARAMETER_NAME];
+            let optionIndex = this.parameters_[MENU_OPTIONS_INTENT_PARAMETER_NAME] - 1;
+            this.setFollowUpEvent(options[optionIndex].eventName, {})
+
+        } else {
+            this.isMenu = false
+        }
     }
 
     getFollowUpEvent() {
@@ -20,11 +42,15 @@ class DialogflowFulfillmentHandler {
         return this.intent_
     }
 
-    setFollowUpEvent(intentName, parameters) {
+    setFollowUpEvent(eventName, parameters) {
         this.followUpEvent_ = {
-            "name": intentName,
+            "name": eventName,
             "parameters": parameters
         }
+    }
+
+    copyResponsesFromDialogflow() {
+        this.responses_ = this.request_.queryResult.fulfillmentMessages
     }
 
     getUserIdentification() {
@@ -33,7 +59,7 @@ class DialogflowFulfillmentHandler {
 
     addOutputContext(name, parameters, lifespan) {
         let contextData = {
-            "name": `${this.session_}/contexts/${name}`,
+            "name": this.buildContextName(name),
             "lifespanCount": lifespan,
             "parameters": parameters
         };
@@ -42,7 +68,7 @@ class DialogflowFulfillmentHandler {
 
     deleteContext(name) {
         let contextData = {
-            "name": `${this.session_}/contexts/${name}`,
+            "name": this.buildContextName(name),
             "lifespanCount": 0
         };
         this.outputContexts_[contextData.name] = contextData;
@@ -68,7 +94,7 @@ class DialogflowFulfillmentHandler {
         let index = 1;
         let textToPush = '';
         options.forEach((opt) => {
-            textToPush += `${index} - ${opt}\n`;
+            textToPush += `${index} - ${opt.text}\n`;
             index++;
         });
         let text = [];
@@ -78,6 +104,12 @@ class DialogflowFulfillmentHandler {
                 text
             }
         };
+
+        let parameters = {};
+        parameters[MENU_OPTIONS_CONTEXT_PARAMETER_NAME] = options.map(function (el) {
+            return {eventName: el.followUpEvent, text: el.text}
+        }) ;
+        this.addOutputContext(MENU_OPTIONS_CONTEXT, parameters, 1);
         this.responses_.push(normalOptions);
     }
 
@@ -130,9 +162,9 @@ class DialogflowFulfillmentHandler {
 
     getInputContexts() {
         if (this.request_.queryResult.outputContexts) {
-            let contexts = {}
+            let contexts = {};
             for (let context of this.request_.queryResult.outputContexts) {
-                contexts[context.name] = context
+                contexts[this.extractNameFromContextIdentificaiton(context.name)] = context
             }
             return contexts
         } else {
@@ -140,16 +172,21 @@ class DialogflowFulfillmentHandler {
         }
     }
 
+    getInputParameters() {
+        return this.parameters_;
+    }
+
     createFulfillmentResponse() {
         let responses = this.responses_;
         let followupEventInput = this.followUpEvent_;
         let outputContexts = [];
-        for (let key in Object.keys(this.outputContexts_)) {
+
+        for (let key of Object.keys(this.outputContexts_)) {
             outputContexts.push(this.outputContexts_[key])
         }
 
         let fulfillmentResponse = {};
-        if (responses && Object.keys(responses).length > 0) {
+        if (responses && responses.length > 0) {
             fulfillmentResponse.fulfillmentMessages = responses;
         }
         if (outputContexts) {
@@ -172,7 +209,26 @@ class DialogflowFulfillmentHandler {
         return fulfillmentResponse;
     }
 
+    newOption(text, event) {
+        return new Option(text, event)
+    }
 
+    buildContextName(name) {
+        return `${this.session_}/contexts/${name}`
+    }
+
+    extractNameFromContextIdentificaiton(contextId) {
+        return contextId.split('/').slice(-1)[0];
+    }
+
+
+}
+
+class Option {
+    constructor(text, event) {
+        this.followUpEvent = event;
+        this.text = text;
+    }
 }
 
 module.exports = {
