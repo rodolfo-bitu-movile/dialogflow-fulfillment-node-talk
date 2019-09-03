@@ -20,6 +20,14 @@ class DialogflowFulfillmentHandler {
         this.userIdentification_ = this.session_.split('/').slice(-1)[0];
         this.intent_ = this.request_.queryResult.intent.displayName;
         this.parameters_ = this.request_.queryResult.parameters;
+        this.source = null;
+        if (this.request_.originalDetectIntentRequest && this.request_.originalDetectIntentRequest.source) {
+            this.source = this.request_.originalDetectIntentRequest.source;
+        } else if (this.request_.originalDetectIntentRequest && this.request_.originalDetectIntentRequest.payload && this.request_.originalDetectIntentRequest.payload.platform){
+            this.source = this.request_.originalDetectIntentRequest.payload.platform
+        } else {
+            this.source = 'unknown'
+        }
 
         if (this.intent_ === MENU_OPTIONS_INTENT) {
             this.isMenu = true;
